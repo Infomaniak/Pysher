@@ -6,7 +6,7 @@ import hmac
 import logging
 import json
 
-VERSION = '1.0.7'
+VERSION = '0.0.1'
 
 
 class Pusher(object):
@@ -100,8 +100,9 @@ class Pusher(object):
         data = {'channel': channel_name}
         if auth is None:
             if channel_name.startswith('presence-'):
-                data['auth'] = self._generate_presence_token(channel_name)
-                data['channel_data'] = json.dumps(self.user_data)
+                tokens = self._generate_presence_token(channel_name)
+                data['auth'] = tokens[0]
+                data['channel_data'] = tokens[1]
             elif channel_name.startswith('private-'):
                 data['auth'] = self._generate_auth_token(channel_name)
         else:
@@ -208,8 +209,10 @@ class Pusher(object):
                 headers=self.auth_endpoint_headers
             )
             assert response.status_code == 200, f"Failed to get auth token from {self.auth_endpoint}"
-            auth_key = response.json()["auth"]
-        return auth_key
+            response = response.json()
+            auth_key = response["auth"]
+            channel_data = response["channel_data"]
+        return [auth_key, channel_data]
 
     def _build_url(self, secure=True, port=None, custom_host=None):
         path = "/app/{}?client={}&version={}&protocol={}".format(

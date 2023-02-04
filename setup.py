@@ -2,7 +2,7 @@
 from setuptools import find_packages
 from setuptools import setup
 
-VERSION = "1.0.8"
+VERSION = "0.0.1"
 
 
 def readme():
@@ -10,7 +10,7 @@ def readme():
         return f.read()
 
 setup(
-    name="Pysher",
+    name="infomaniakpysher",
     version=VERSION,
     description="Pusher websocket client for python, based on Erik Kulyk's PythonPusherClient",
     long_description=readme(),

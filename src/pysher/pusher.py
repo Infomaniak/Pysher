@@ -41,11 +41,8 @@ class Pusher(object):
         :param Any thread_kwargs:
         """
         # https://pusher.com/docs/clusters
-        if cluster:
-            self.host = "ws-{cluster}.pusher.com".format(cluster=cluster)
-        else:
-            self.host = "ws.pusherapp.com"
-
+        self.host = f"ws-{cluster}.pusher.com" if cluster else "ws.pusherapp.com"
+        
         self.key = key
         self.secret = secret
         self.auth_endpoint = auth_endpoint
@@ -56,11 +53,7 @@ class Pusher(object):
         self.channels = {}
         self.url = self._build_url(secure, port, custom_host)
 
-        if auto_sub:
-            reconnect_handler = self._reconnect_handler
-        else:
-            reconnect_handler = None
-
+        reconnect_handler = self._reconnect_handler if auto_sub else None
         self.connection = Connection(self._connection_handler, self.url,
                                      reconnect_handler=reconnect_handler,
                                      log_level=log_level,
@@ -165,10 +158,10 @@ class Pusher(object):
             raise NotImplementedError
         if self.secret:
             # Locally signed
-            subject = "{}:{}".format(self.connection.socket_id, channel_name)
+            subject = f"{self.connection.socket_id}:{channel_name}"
             h = hmac.new(self.secret_as_bytes, subject.encode('utf-8'), hashlib.sha256)
-            auth_key = "{}:{}".format(self.key, h.hexdigest())
-        elif self.auth_endpoint:
+            return f"{self.key}:{h.hexdigest()}"
+        else:
             # Remotely signed
             request_data = {
                 "channel_name": channel_name,
@@ -180,8 +173,7 @@ class Pusher(object):
                 headers=self.auth_endpoint_headers
             )
             assert response.status_code == 200, f"Failed to get auth token from {self.auth_endpoint}"
-            auth_key = response.json()["auth"]
-        return auth_key
+            return response.json()["auth"]
 
     def _generate_presence_token(self, channel_name):
         """Generate a presence token.
@@ -193,7 +185,7 @@ class Pusher(object):
             raise NotImplementedError
         if self.secret:
             # Locally signed
-            subject = "{}:{}:{}".format(self.connection.socket_id, channel_name, json.dumps(self.user_data))
+            subject = f"{self.connection.socket_id}:{channel_name}:{json.dumps(self.user_data)}"
             h = hmac.new(self.secret_as_bytes, subject.encode('utf-8'), hashlib.sha256)
             auth_key = "{}:{}".format(self.key, h.hexdigest())
         elif self.auth_endpoint:
@@ -215,14 +207,11 @@ class Pusher(object):
         return [auth_key, channel_data]
 
     def _build_url(self, secure=True, port=None, custom_host=None):
-        path = "/app/{}?client={}&version={}&protocol={}".format(
-            self.key, self.client_id, VERSION, self.protocol
-        )
-
+        path = f"/app/{self.key}?client={self.client_id,}&version={VERSION}&protocol={self.protocol}"
         proto = "wss" if secure else "ws"
-
         host = custom_host or self.host
+        
         if not port:
             port = 443 if secure else 80
 
-        return "{}://{}:{}{}".format(proto, host, port, path)
+        return f"{proto}://{host}:{port}{path}"
